@@ -1,7 +1,10 @@
 import itertools
 
+import numpy as np
+
 from rclpy_listeners.std_m_rclpy_spin import RclpySpin
 from rclpy_listeners.std_m_rclpy_spin_once import RclpySpinOnce
+from rclpy_listeners.std_m_multithreaded_ex import MultiThreadedEx
 
 import rclpy
 import time
@@ -11,6 +14,7 @@ import pandas as pd
 import seaborn as sns
 
 import subprocess
+import os
 
 
 def drain_queue(duration_s, args=None):
@@ -27,60 +31,75 @@ def drain_queue(duration_s, args=None):
 
 def make_measurement(duration_s, rate_hz, Sub, args=None):
     PUBLISHER_RATIO = 2
-    n_msgs_expected = duration_s * rate_hz  # what we expect to receive
-    n_msgs_send = PUBLISHER_RATIO * n_msgs_expected  # PUBLISHER_RATIO x in case of loss
-    print_period = 0
-    pub_command = f'ros2 topic pub --times {n_msgs_send} -r {rate_hz} -p {print_period} /topic std_msgs/msg/String'
+    n_msgs_expected = duration_s * rate_hz
+    # PUBLISHER_RATIO x in case of loss
+    n_msgs_send = PUBLISHER_RATIO * n_msgs_expected
+    pub_command = f'ros2 topic pub -t {n_msgs_send} -w 0 -r {rate_hz} -p 0 /topic std_msgs/msg/String'
     print(f"{pub_command=}")
     process_pub = subprocess.Popen(
-        f'bash -c "source /opt/ros/rolling/setup.bash; {pub_command}"',
+        f'bash -c "source /opt/ros/{os.environ["ROS_DISTRO"]}/setup.bash; {pub_command}"',
         shell=True)
+    time.sleep(.1)
     thread_listener = Sub(args=args)
     thread_listener.start()
-    # thread_publisher.start()
-    # thread_publisher.join()
-    time.sleep(duration_s)
+    time.sleep(duration_s / 3)
+    cpu_usage = thread_listener.get_cpu_usage()
+    time.sleep(duration_s / 3)
+    cpu_usage = float(np.mean([
+        cpu_usage,
+        thread_listener.get_cpu_usage()]))
+    time.sleep(duration_s / 3)
     n_messages_received = thread_listener.get_received_messages()
     print(f"{n_messages_received=}")
     print(f"{n_messages_received/n_msgs_expected=}")
+    print(f"{cpu_usage=}")
     thread_listener.stop()
     rclpy.shutdown()
     process_pub.kill()
     thread_listener.join()
     time.sleep((PUBLISHER_RATIO - 1) * duration_s)
     print("thread finished...exiting")
-    return n_messages_received/n_msgs_expected
+    return n_messages_received/n_msgs_expected, cpu_usage
 
 
 def experiment(args=None):
-    subscribers = [RclpySpin, RclpySpinOnce]
-    frequencies = [1, 3, 10, 30, 100, 300, 1000, 3000, 10000]
-    duration = 3
+    subscribers = [RclpySpin, RclpySpinOnce, MultiThreadedEx]
+    frequencies = np.logspace(start=0, stop=6, num=7, dtype=int)
+    duration = 5
     drain_duration = 1
     n_trials = 3
+    # n_trials = 1
 
-    df = pd.DataFrame(columns=["frequency", "trial", "delivery_ratio", "subscriber"])
+    df = pd.DataFrame(columns=[
+        'frequency', 'trial', 'subscriber', 'delivery_ratio', 'cpu_usage'])
 
-    for frequency, trial, Sub in itertools.product(
-            frequencies, range(n_trials), subscribers):
+    for i, (frequency, trial, Sub) in enumerate(itertools.product(
+            frequencies, range(n_trials), subscribers)):
+        print(f"{i=} / {len(frequencies) * n_trials * len(subscribers)}")
         drain_queue(drain_duration, args=args)
-        delivery_ratio = make_measurement(duration, frequency, Sub, args=args)
+        delivery_ratio, cpu_usage = make_measurement(duration, frequency, Sub, args=args)
         drain_queue(drain_duration, args=args)
-        df = df.append({
-            "frequency": frequency, 
-            "trial": trial, 
-            "delivery_ratio": delivery_ratio,
-            "subscriber": Sub.__name__
-        }, ignore_index=True)
+        df = pd.concat([df, pd.DataFrame({
+            'frequency': [frequency],
+            'trial': [trial],
+            'subscriber': [Sub.__name__],
+            'delivery_ratio': [delivery_ratio],
+            'cpu_usage': [cpu_usage]})], ignore_index=True)
 
-    df.to_csv("delivery_ratio.csv")
+    df.to_csv('data.csv')
 
 
 def plot():
-    df = pd.read_csv("delivery_ratio.csv")
-    sns.lineplot(data=df, x="frequency", y="delivery_ratio", hue="subscriber")
+    df = pd.read_csv('data.csv')
+    _lineplot(df, 'delivery_ratio')
+    plt.figure()
+    _lineplot(df, 'cpu_usage')
+
+
+def _lineplot(df, y):
+    sns.lineplot(data=df, x='frequency', y=y, hue='subscriber')
     plt.xscale("log")
-    plt.savefig("delivery_ratio.png")
+    plt.savefig(f'{y}.png')
 
 
 def main(args=None):
