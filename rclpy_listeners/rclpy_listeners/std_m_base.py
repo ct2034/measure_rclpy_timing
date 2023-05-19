@@ -1,13 +1,14 @@
-import rclpy
+import threading
+
+import psutil
+
 from rclpy.node import Node
 
 from std_msgs.msg import String
-import threading
-from rclpy.executors import MultiThreadedExecutor
-import psutil
-   
-    
+
+
 class Subscriber(Node):
+
     def __init__(self):
         super().__init__('subscriber')
         self.subscription = self.create_subscription(
@@ -24,8 +25,6 @@ class Subscriber(Node):
 
 
 class SubscriberThread(threading.Thread):
-    """Thread class with a stop() method. The thread itself has to check
-    regularly for the stopped() condition."""
 
     def __init__(self, args=None):
         super(SubscriberThread, self).__init__()
@@ -34,13 +33,13 @@ class SubscriberThread(threading.Thread):
 
     def run(self):
         raise NotImplementedError
-    
+
     def stop(self):
         self._stop_event.set()
 
     def get_received_messages(self):
         return self.subscriber.received_messages
-    
+
     def get_cpu_usage(self):
         return psutil.Process().cpu_percent(.1)
 

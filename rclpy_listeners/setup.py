@@ -22,7 +22,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            f'measure = instrumentation.measure:main'
+            'measure = instrumentation.measure:main'
         ],
     },
 )

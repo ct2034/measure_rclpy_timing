@@ -1,9 +1,10 @@
 import rclpy
 
-from rclpy_listeners.std_m_base import SubscriberThread, Subscriber
-    
+from rclpy_listeners.std_m_base import Subscriber, SubscriberThread
+
 
 class RclpySpin(SubscriberThread):
+
     def run(self):
         rclpy.init(args=self._args, context=None)
 

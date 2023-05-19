@@ -1,10 +1,10 @@
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
+from rclpy_listeners.std_m_base import Subscriber, SubscriberThread
 
-from rclpy_listeners.std_m_base import SubscriberThread, Subscriber
-    
 
 class MultiThreadedEx(SubscriberThread):
+
     def run(self):
         rclpy.init(args=self._args, context=None)
 
