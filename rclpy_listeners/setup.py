@@ -7,7 +7,6 @@ setup(
     version='0.0.0',
     packages=[
         package_name,
-        'rclpy_talker',
         'instrumentation'],
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -23,7 +22,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            f'std_m_spin_once = {package_name}.std_m_spin_once:main',
             f'measure = instrumentation.measure:main'
         ],
     },
