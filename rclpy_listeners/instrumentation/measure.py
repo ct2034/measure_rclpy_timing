@@ -18,7 +18,7 @@ from rclpy_listeners.std_m_rclpy_spin_once import RclpySpinOnce
 import seaborn as sns
 
 
-def drain_queue(duration_s, args=None):
+def run_listener(duration_s, args=None):
     thread_listener = RclpySpin(args=args)
     thread_listener.start()
     time.sleep(duration_s)
@@ -27,7 +27,14 @@ def drain_queue(duration_s, args=None):
     thread_listener.stop()
     rclpy.shutdown()
     thread_listener.join()
-    time.sleep(duration_s)
+    return n_messages_received
+
+
+def drain_queue(duration_s, args=None):
+    n_messages_received = run_listener(duration_s, args)
+    while n_messages_received:
+        n_messages_received = run_listener(duration_s, args)
+    time.sleep(.1)
 
 
 def make_measurement(duration_s, rate_hz, Sub, args=None):

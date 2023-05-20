@@ -1,5 +1,5 @@
 import threading
-
+import time
 import psutil
 
 from rclpy.node import Node
@@ -30,6 +30,7 @@ class SubscriberThread(threading.Thread):
         super(SubscriberThread, self).__init__()
         self._stop_event = threading.Event()
         self._args = args
+        self.subscriber = None
 
     def run(self):
         raise NotImplementedError
@@ -38,6 +39,8 @@ class SubscriberThread(threading.Thread):
         self._stop_event.set()
 
     def get_received_messages(self):
+        while not self.subscriber:
+            time.sleep(.1)
         return self.subscriber.received_messages
 
     def get_cpu_usage(self):
