@@ -1,0 +1,23 @@
+on:
+    schedule:
+        - cron:  "0 0 * * *"
+    push:
+        branches:
+            - main
+jobs:
+    benchmark:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - uses: ros-tooling/setup-ros@master
+            - name: Install dependencies
+              run: sudo apt-get install -y python3-pip
+            - name: Install pip dependencies
+              run: pip3 install -r requirements.txt
+            - name: Run benchmark
+              run: ros2 run rclpy_listeners measure
+            - name: Upload results
+              uses: actions/upload-artifact@v2
+              with:
+                  name: results
+                  path: data.csv
