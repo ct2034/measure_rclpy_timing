@@ -13,7 +13,8 @@ jobs:
               - humble
         steps:
             - uses: actions/checkout@v2
-              path: src/rclpy_listeners
+              with:
+                path: src/rclpy_listeners
             - uses: ros-tooling/setup-ros@v0.6
               with:
                 required-ros-distributions: ${{ matrix.distro }}
