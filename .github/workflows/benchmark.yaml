@@ -14,7 +14,7 @@ jobs:
         steps:
             - uses: actions/checkout@v2
               with:
-                path: src/rclpy_listeners
+                path: src/measure_rclpy_timing
             - run: find
             - uses: ros-tooling/setup-ros@v0.6
               with:
@@ -22,14 +22,14 @@ jobs:
             - name: Install dependencies
               run: sudo apt-get install -y python3-pip
             - name: Install pip dependencies
-              run: pip3 install -r src/rclpy_listeners/requirements.txt
+              run: pip3 install -r src/measure_rclpy_timing/requirements.txt
             - name: Build 
               run: "source /opt/ros/${{ matrix.distro }}/setup.bash && colcon build"
             - name: Run benchmark
               run: "source /opt/ros/${{ matrix.distro }}/setup.bash && source install/local_setup.bash && ros2 run rclpy_listeners measure"
             
             - name: Display plots in summary
-              run: /home/runner/work/measure_rclpy_timing/measure_rclpy_timing/src/rclpy_listeners/src/measure_rclpy_timing/rclpy_listeners/scripts/b64_encoder.py >> $GITHUB_STEP_SUMMARY
+              run: ./src/measure_rclpy_timing/rclpy_listeners/scripts/b64_encoder.py >> $GITHUB_STEP_SUMMARY
             - name: Upload results
               uses: actions/upload-artifact@v2
               with:
