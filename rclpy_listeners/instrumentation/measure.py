@@ -1,5 +1,6 @@
 import itertools
 import os
+import random
 import subprocess
 import time
 
@@ -59,12 +60,12 @@ def make_measurement(duration_s, rate_hz, Sub, args=None):
         thread_listener.get_cpu_usage()]))
     time.sleep(duration_s / 3)
     n_messages_received = thread_listener.get_received_messages()
+    process_pub.kill()
     print(f'{n_messages_received=}')
     print(f'{n_messages_received/n_msgs_expected=}')
     print(f'{cpu_usage=}')
     thread_listener.stop()
     rclpy.shutdown()
-    process_pub.kill()
     thread_listener.join()
     time.sleep((PUBLISHER_RATIO - 1) * duration_s)
     print('thread finished...exiting')
@@ -73,21 +74,27 @@ def make_measurement(duration_s, rate_hz, Sub, args=None):
 
 def experiment(args=None):
     subscribers = [RclpySpin, RclpySpinOnce, MultiThreadedEx]
-    frequencies = np.logspace(start=0, stop=6, num=7, dtype=int)
-    duration = 5
-    drain_duration = 1
+    frequencies = np.logspace(start=0, stop=4, num=5, dtype=int)
+    duration = 2
+    drain_duration = duration * 2
     n_trials = 3
     # n_trials = 1
+    start_overall = time.time()
 
     df = pd.DataFrame(columns=[
         'frequency', 'trial', 'subscriber', 'delivery_ratio', 'cpu_usage'])
 
-    for i, (frequency, trial, Sub) in enumerate(itertools.product(
-            frequencies, range(n_trials), subscribers)):
-        print(f'{i=} / {len(frequencies) * n_trials * len(subscribers)}')
-        drain_queue(drain_duration, args=args)
+    experiments = dict(
+        enumerate(itertools.product(frequencies, range(n_trials), subscribers))
+    )
+    order = list(experiments.keys())
+    random.shuffle(order)
+
+    for t, (frequency, trial, Sub) in enumerate(experiments[i] for i in order):
+        print(f'{t=} / {len(frequencies) * n_trials * len(subscribers)}')
         delivery_ratio, cpu_usage = make_measurement(
             duration, frequency, Sub, args=args)
+        drain_queue(drain_duration, args=args)
         drain_queue(drain_duration, args=args)
         df = pd.concat([df, pd.DataFrame({
             'frequency': [frequency],
@@ -97,6 +104,7 @@ def experiment(args=None):
             'cpu_usage': [cpu_usage]})], ignore_index=True)
 
     df.to_csv('data.csv')
+    print(f'overall runtime: {(time.time() - start_overall) / 60} min')
 
 
 def plot():
