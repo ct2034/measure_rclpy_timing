@@ -12,15 +12,17 @@ import pandas as pd
 
 import rclpy
 
-from rclpy_listeners.std_m_multithreaded_ex import MultiThreadedEx
-from rclpy_listeners.std_m_rclpy_spin import RclpySpin
-from rclpy_listeners.std_m_rclpy_spin_once import RclpySpinOnce
+from rclpy_listeners.ex_multithreaded import MultiThreadedEx
+from rclpy_listeners.ex_rclpy_spin import RclpySpin
+from rclpy_listeners.ex_rclpy_spin_once import RclpySpinOnce
+from rclpy_listeners.subsc_custom_msg import CustomMsgSubscriber
+from rclpy_listeners.subsc_std_msg import StdMsgSubscriber
 
 import seaborn as sns
 
 
 def run_listener(duration_s, args=None):
-    thread_listener = RclpySpin(args=args)
+    thread_listener = RclpySpin(StdMsgSubscriber, args=args)
     thread_listener.start()
     time.sleep(duration_s)
     n_messages_received = thread_listener.get_received_messages()
@@ -38,19 +40,24 @@ def drain_queue(duration_s, args=None):
     time.sleep(.1)
 
 
-def make_measurement(duration_s, rate_hz, Sub, args=None):
-    PUBLISHER_RATIO = 2
+def make_measurement(duration_s, rate_hz, Exec, Sub, args=None):
     n_msgs_expected = duration_s * rate_hz
+    PUBLISHER_RATIO = 2
     # PUBLISHER_RATIO x in case of loss
     n_msgs_send = PUBLISHER_RATIO * n_msgs_expected
-    pub_command = f'ros2 topic pub -t {n_msgs_send} -w 0 -r {rate_hz}' + \
-        ' -p 0 /topic std_msgs/msg/String'
+    if Sub == StdMsgSubscriber:
+        msg_type = 'std_msgs/msg/String'
+    elif Sub == CustomMsgSubscriber:
+        msg_type = 'custom_msgs/msg/NonStdString'
+    else:
+        raise NotImplementedError
+    pub_command = f'ros2 topic pub -t {n_msgs_send} -w 0 -r {rate_hz} -p 0 /topic {msg_type}'
     print(f'{pub_command=}')
     process_pub = subprocess.Popen(
         f'bash -c "source /opt/ros/{os.environ["ROS_DISTRO"]}/setup.bash; {pub_command}"',
         shell=True)
     time.sleep(.1)
-    thread_listener = Sub(args=args)
+    thread_listener = Exec(Sub, args=args)
     thread_listener.start()
     time.sleep(duration_s / 3)
     cpu_usage = thread_listener.get_cpu_usage()
@@ -73,53 +80,65 @@ def make_measurement(duration_s, rate_hz, Sub, args=None):
 
 
 def experiment(args=None):
-    subscribers = [RclpySpin, RclpySpinOnce, MultiThreadedEx]
-    frequencies = np.logspace(start=0, stop=4, num=5, dtype=int)
+    # general params
     duration = 2
     drain_duration = duration * 2
-    n_trials = 3
-    # n_trials = 1
-    start_overall = time.time()
-
     df = pd.DataFrame(columns=[
-        'frequency', 'trial', 'subscriber', 'delivery_ratio', 'cpu_usage'])
+        'frequency', 'trial', 'executor', 'subscriber', 'delivery_ratio', 'cpu_usage'])
 
+    # experiment params
+    # frequencies = np.logspace(start=0, stop=4, num=5, dtype=int)
+    frequencies = np.logspace(start=0, stop=4, num=2, dtype=int)
+    # n_trials = 3
+    n_trials = 1
+    executors = [RclpySpin, RclpySpinOnce, MultiThreadedEx]
+    subscribers = [CustomMsgSubscriber, StdMsgSubscriber]
+
+    # experiment indexing
     experiments = dict(
-        enumerate(itertools.product(frequencies, range(n_trials), subscribers))
+        enumerate(itertools.product(frequencies, range(n_trials), executors, subscribers))
     )
     order = list(experiments.keys())
     random.shuffle(order)
 
-    for t, (frequency, trial, Sub) in enumerate(experiments[i] for i in order):
-        print(f'{t=} / {len(frequencies) * n_trials * len(subscribers)}')
+    # experiment
+    start_overall = time.time()
+    for t, (frequency, trial, Exec, Sub) in enumerate(experiments[i] for i in order):
+        print(f'{t=} / {len(frequencies) * n_trials * len(executors)}')
         delivery_ratio, cpu_usage = make_measurement(
-            duration, frequency, Sub, args=args)
+            duration, frequency, Exec, Sub, args=args)
         drain_queue(drain_duration, args=args)
         drain_queue(drain_duration, args=args)
         df = pd.concat([df, pd.DataFrame({
             'frequency': [frequency],
             'trial': [trial],
+            'executor': [Exec.__name__],
             'subscriber': [Sub.__name__],
             'delivery_ratio': [delivery_ratio],
             'cpu_usage': [cpu_usage]})], ignore_index=True)
 
+    # save results
     df.to_csv('data.csv')
     print(f'overall runtime: {(time.time() - start_overall) / 60} min')
 
 
 def plot():
     df = pd.read_csv('data.csv')
-    _lineplot(df, 'delivery_ratio')
-    plt.figure()
-    _lineplot(df, 'cpu_usage')
+    _pairplot(df, 'subscriber')
+    _pairplot(df, 'executor')
 
 
-def _lineplot(df, y):
-    sns.lineplot(data=df, x='frequency', y=y, hue='subscriber')
-    plt.xscale('log')
-    plt.savefig(f'{y}.png')
+def _pairplot(df, hue):
+    sns.pairplot(
+        df,
+        x_vars=['frequency'],
+        y_vars=['delivery_ratio', 'cpu_usage'],
+        hue=hue,
+    )
+    plt.savefig(f'pairplot_{hue}.png')
+    plt.close()
 
 
 def main(args=None):
-    experiment(args=args)
+    # experiment(args=args)
     plot()
