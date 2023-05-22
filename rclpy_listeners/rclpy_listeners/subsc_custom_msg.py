@@ -4,8 +4,6 @@ import psutil
 
 from rclpy.node import Node
 
-from custom_msgs.msg import NonStdString
-
 
 class CustomMsgSubscriber(Node):
 
