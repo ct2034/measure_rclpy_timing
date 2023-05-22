@@ -25,7 +25,7 @@ jobs:
             - name: Build 
               run: "source /opt/ros/${{ matrix.distro }}/setup.bash && colcon build"
             - name: Run benchmark
-              run: "source install/local_setup.bash && ros2 run rclpy_listeners benchmark.py"
+              run: "source /opt/ros/${{ matrix.distro }}/setup.bash && source install/local_setup.bash && ros2 run rclpy_listeners benchmark.py"
             - name: Upload results
               uses: actions/upload-artifact@v2
               with:
