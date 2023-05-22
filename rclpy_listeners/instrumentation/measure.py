@@ -43,7 +43,7 @@ def drain_queue(duration_s, MessageType, args=None):
     time.sleep(.1)
 
 
-def make_measurement(duration_s, rate_hz, Exec, MessageType, args=None):
+def make_measurement(duration_s, rate_hz, msg_size, Exec, MessageType, args=None):
     n_msgs_expected = duration_s * rate_hz
     PUBLISHER_RATIO = 2
     # PUBLISHER_RATIO x in case of loss
@@ -54,10 +54,14 @@ def make_measurement(duration_s, rate_hz, Exec, MessageType, args=None):
         msg_type = 'custom_msgs/msg/NonStdString'
     else:
         raise NotImplementedError
+    data_content = 'x' * msg_size
+    data_str = f'data: {data_content}'
+    content_str = '{' + data_str + '}'
     pub_command = (
         f'ros2 topic pub -t {n_msgs_send} -w 0 -r {rate_hz} -p 0 ' 
-        f'/topic {msg_type}')
-    print(f'{pub_command=}')
+        f'/topic {msg_type} \'{content_str}\'')
+    info = (pub_command[:100] + '..') if len(pub_command) > 75 else pub_command
+    print(f'pub_command={info}')
     process_pub = subprocess.Popen(
         f'bash -c "source /opt/ros/{os.environ["ROS_DISTRO"]}/setup.bash; '
         f'{pub_command}"',
@@ -90,14 +94,15 @@ def experiment(args=None):
     duration = 2
     drain_duration = duration * 2
     df = pd.DataFrame(columns=[
-        'frequency', 'trial', 'executor', 
+        'frequency', 'msg_size', 'trial', 'executor', 
         'message_type', 'delivery_ratio', 'cpu_usage'])
 
     # experiment params
-    # frequencies = np.logspace(start=0, stop=4, num=5, dtype=int)
-    frequencies = np.logspace(start=0, stop=4, num=2, dtype=int)
+    # frequencies = np.logspace(start=1, stop=4, num=4, dtype=int)
+    frequencies = np.logspace(start=1, stop=4, num=2, dtype=int)
     # n_trials = 3
     n_trials = 1
+    msg_sizes = np.logspace(start=0, stop=4, num=3, dtype=int)
     executors = [RclpySpin, RclpySpinOnce, MultiThreadedEx]
     message_types = [String, NonStdString]
 
@@ -105,6 +110,7 @@ def experiment(args=None):
     experiments = dict(
         enumerate(itertools.product(
             frequencies, 
+            msg_sizes,
             range(n_trials), 
             executors, 
             message_types
@@ -115,15 +121,16 @@ def experiment(args=None):
 
     # experiment
     start_overall = time.time()
-    for t, (frequency, trial, Exec, MessageType
+    for t, (frequency, msg_size, trial, Exec, MessageType
             ) in enumerate(experiments[i] for i in order):
         print(f'{t=} / {len(experiments)}')
         delivery_ratio, cpu_usage = make_measurement(
-            duration, frequency, Exec, MessageType, args=args)
+            duration, frequency, msg_size, Exec, MessageType, args=args)
         drain_queue(drain_duration, MessageType, args=args)
         drain_queue(drain_duration, MessageType, args=args)
         df = pd.concat([df, pd.DataFrame({
             'frequency': [frequency],
+            'msg_size': [msg_size],
             'trial': [trial],
             'executor': [Exec.__name__],
             'message_type': [MessageType.__name__],
@@ -142,12 +149,14 @@ def plot():
 
 
 def _pairplot(df, hue):
-    sns.pairplot(
+    pp = sns.pairplot(
         df,
-        x_vars=['frequency'],
+        x_vars=['frequency', 'msg_size'],
         y_vars=['delivery_ratio', 'cpu_usage'],
         hue=hue,
     )
+    for ax in pp.axes.flat:
+        ax.set_xscale('log')
     plt.savefig(f'pairplot_{hue}.png')
     plt.close()
 
