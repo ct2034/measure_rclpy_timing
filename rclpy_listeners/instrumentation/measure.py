@@ -98,10 +98,10 @@ def experiment(args=None):
         'message_type', 'delivery_ratio', 'cpu_usage'])
 
     # experiment params
-    # frequencies = np.logspace(start=1, stop=4, num=4, dtype=int)
-    frequencies = np.logspace(start=1, stop=4, num=2, dtype=int)
-    # n_trials = 3
-    n_trials = 1
+    frequencies = np.logspace(start=1, stop=4, num=4, dtype=int)
+    # frequencies = np.logspace(start=1, stop=4, num=2, dtype=int)
+    n_trials = 3
+    # n_trials = 1
     msg_sizes = np.logspace(start=0, stop=4, num=3, dtype=int)
     executors = [RclpySpin, RclpySpinOnce, MultiThreadedEx]
     message_types = [String, NonStdString]
