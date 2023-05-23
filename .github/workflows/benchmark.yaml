@@ -27,9 +27,10 @@ jobs:
               run: "source /opt/ros/${{ matrix.distro }}/setup.bash && colcon build"
             - name: Run benchmark
               run: "source /opt/ros/${{ matrix.distro }}/setup.bash && source install/local_setup.bash && ros2 run rclpy_listeners measure"
-            
-            - name: Display plots in summary
-              run: ./src/measure_rclpy_timing/rclpy_listeners/scripts/b64_encoder.py >> $GITHUB_STEP_SUMMARY
+            - name: Display data table in summary
+              run: ./src/measure_rclpy_timing/rclpy_listeners/scripts/data_as_md.py >> $GITHUB_STEP_SUMMARY
+            # - name: Display plots in summary
+            #   run: ./src/measure_rclpy_timing/rclpy_listeners/scripts/b64_encoder.py >> $GITHUB_STEP_SUMMARY
             - name: Upload results
               uses: actions/upload-artifact@v2
               with:
