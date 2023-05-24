@@ -35,4 +35,7 @@ jobs:
               uses: actions/upload-artifact@v2
               with:
                   name: results
-                  path: data.csv
+                  path: |
+                    data.csv
+                    *.png
+                    
