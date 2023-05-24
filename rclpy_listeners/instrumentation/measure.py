@@ -157,6 +157,7 @@ def _pairplot(df, hue):
     )
     for ax in pp.axes.flat:
         ax.set_xscale('log')
+    pp.map_offdiag(sns.lineplot)
     plt.savefig(f'pairplot_{hue}.png')
     plt.close()
 
@@ -164,3 +165,7 @@ def _pairplot(df, hue):
 def main(args=None):
     experiment(args=args)
     plot()
+
+
+if __name__ == '__main__':
+    main()
