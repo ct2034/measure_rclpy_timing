@@ -44,8 +44,44 @@ def drain_queue(duration_s, MessageType, args=None):
 
 
 def make_measurement(duration_s, rate_hz, msg_size, Exec, MessageType, args=None):
-    n_msgs_expected = duration_s * rate_hz
+    # preparation
+    thread_listener = Exec(MessageType, args=args)
     PUBLISHER_RATIO = 2
+    n_msgs_expected, process_pub = make_publisher(PUBLISHER_RATIO, duration_s, rate_hz, msg_size, MessageType)
+    time.sleep(duration_s / 2)  # using 1/2 of the time to warm up
+   
+    # start the measurement
+    thread_listener.start()
+
+    # wait for the measurement to finish
+    time.sleep(duration_s / 3)
+    cpu_usage = thread_listener.get_cpu_usage()
+    time.sleep(duration_s / 3)
+    cpu_usage = float(np.mean([
+        cpu_usage,
+        thread_listener.get_cpu_usage()]))
+    time.sleep(duration_s / 3)
+
+    # stop the measurement
+    thread_listener.stop()
+    n_messages_received = thread_listener.get_received_messages()
+    process_pub.kill()
+
+    # report results
+    print(f'{n_messages_received=}')
+    print(f'{n_messages_received/n_msgs_expected=}')
+    print(f'{cpu_usage=}')
+
+    # clean up
+    rclpy.shutdown()
+    thread_listener.join()
+    time.sleep((PUBLISHER_RATIO - 1) * duration_s)
+    print('thread finished...exiting')
+    return n_messages_received/n_msgs_expected, cpu_usage
+
+
+def make_publisher(PUBLISHER_RATIO, duration_s, rate_hz, msg_size, MessageType):
+    n_msgs_expected = duration_s * rate_hz
     # PUBLISHER_RATIO x in case of loss
     n_msgs_send = PUBLISHER_RATIO * n_msgs_expected
     if MessageType == String:
@@ -66,43 +102,25 @@ def make_measurement(duration_s, rate_hz, msg_size, Exec, MessageType, args=None
         f'bash -c "source /opt/ros/{os.environ["ROS_DISTRO"]}/setup.bash; '
         f'{pub_command}"',
         shell=True)
-    time.sleep(.1)
-    thread_listener = Exec(MessageType, args=args)
-    thread_listener.start()
-    time.sleep(duration_s / 3)
-    cpu_usage = thread_listener.get_cpu_usage()
-    time.sleep(duration_s / 3)
-    cpu_usage = float(np.mean([
-        cpu_usage,
-        thread_listener.get_cpu_usage()]))
-    time.sleep(duration_s / 3)
-    n_messages_received = thread_listener.get_received_messages()
-    process_pub.kill()
-    print(f'{n_messages_received=}')
-    print(f'{n_messages_received/n_msgs_expected=}')
-    print(f'{cpu_usage=}')
-    thread_listener.stop()
-    rclpy.shutdown()
-    thread_listener.join()
-    time.sleep((PUBLISHER_RATIO - 1) * duration_s)
-    print('thread finished...exiting')
-    return n_messages_received/n_msgs_expected, cpu_usage
+        
+    return n_msgs_expected, process_pub
 
 
 def experiment(args=None):
     # general params
     duration = 2
-    drain_duration = duration * 2
+    drain_duration = duration/2
     df = pd.DataFrame(columns=[
         'frequency', 'msg_size', 'trial', 'executor', 
         'message_type', 'delivery_ratio', 'cpu_usage'])
 
     # experiment params
     frequencies = np.logspace(start=1, stop=4, num=4, dtype=int)
-    # frequencies = np.logspace(start=1, stop=4, num=2, dtype=int)
+    # frequencies = np.logspace(start=1, stop=3, num=2, dtype=int)
     n_trials = 3
     # n_trials = 1
     msg_sizes = np.logspace(start=0, stop=4, num=3, dtype=int)
+    # msg_sizes = np.logspace(start=0, stop=4, num=2, dtype=int)
     executors = [RclpySpin, RclpySpinOnce, MultiThreadedEx]
     message_types = [String, NonStdString]
 
