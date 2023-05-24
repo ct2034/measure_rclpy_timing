@@ -156,6 +156,9 @@ def experiment(args=None):
             'cpu_usage': [cpu_usage]})], ignore_index=True)
 
     # save results
+    df = df.sort_values(
+        by=['trial', 'message_type', 'executor', 'frequency', 'msg_size']
+    )
     df.to_csv('data.csv')
     print(f'overall runtime: {(time.time() - start_overall) / 60} min')
 
