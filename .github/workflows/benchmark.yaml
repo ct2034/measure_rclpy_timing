@@ -1,41 +1,56 @@
 on:
-    schedule:
-        - cron:  "0 0 * * *"
-    push:
-        branches:
-            - main
+  schedule:
+    - cron:  "0 0 * * *"
+  push:
+    branches:
+      - main
 jobs:
-    benchmark:
-        runs-on: ubuntu-latest
-        strategy:
-          matrix:
-            distro:
-              - humble
-        steps:
-            - uses: actions/checkout@v2
-              with:
-                path: src/measure_rclpy_timing
-            - run: find
-            - uses: ros-tooling/setup-ros@v0.6
-              with:
-                required-ros-distributions: ${{ matrix.distro }}
-            - name: Install dependencies
-              run: sudo apt-get install -y python3-pip
-            - name: Install pip dependencies
-              run: pip3 install -r src/measure_rclpy_timing/requirements.txt
-            - name: Build 
-              run: "source /opt/ros/${{ matrix.distro }}/setup.bash && colcon build"
-            - name: Run benchmark
-              run: "source /opt/ros/${{ matrix.distro }}/setup.bash && source install/local_setup.bash && ros2 run rclpy_listeners measure"
-            - name: Display data table in summary
-              run: ./src/measure_rclpy_timing/rclpy_listeners/scripts/data_as_md.py >> $GITHUB_STEP_SUMMARY
-            # - name: Display plots in summary
-            #   run: ./src/measure_rclpy_timing/rclpy_listeners/scripts/b64_encoder.py >> $GITHUB_STEP_SUMMARY
-            - name: Upload results
-              uses: actions/upload-artifact@v2
-              with:
-                  name: results
-                  path: |
-                    data.csv
-                    *.png
-                    
+  benchmark:
+    name: Benchmark ${{ matrix.distro }} ${{ matrix.rmw_impl }}
+    strategy:
+      matrix:
+        distro:
+          - foxy
+          - humble
+          # - iron
+          - rolling
+        rmw_impl:
+          - rmw_cyclonedds_cpp
+          - rmw_fastrtps_cpp
+        include:
+          - distro: foxy
+            os: ubuntu-20.04
+          - distro: humble
+            os: ubuntu-22.04
+          # - distro: iron
+          #   os: ubuntu-22.04
+          - distro: rolling
+            os: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        path: src/measure_rclpy_timing
+    - run: find
+    - uses: ros-tooling/setup-ros@v0.6
+      with:
+        required-ros-distributions: ${{ matrix.distro }}
+    - name: Install dependencies
+      run: sudo apt-get install -y python3-pip
+    - name: Install pip dependencies
+      run: pip3 install -r src/measure_rclpy_timing/requirements.txt
+    - name: Build
+      run: "source /opt/ros/${{ matrix.distro }}/setup.bash && colcon build"
+    - name: Run benchmark
+      run: "export RMW_IMPLEMENTATION=${{ matrix.rmw_impl }} && source /opt/ros/${{ matrix.distro }}/setup.bash && source install/local_setup.bash && ros2 run rclpy_listeners measure"
+    - name: Display data table in summary
+      run: ./src/measure_rclpy_timing/rclpy_listeners/scripts/data_as_md.py >> $GITHUB_STEP_SUMMARY
+    # - name: Display plots in summary
+    #   run: ./src/measure_rclpy_timing/rclpy_listeners/scripts/b64_encoder.py >> $GITHUB_STEP_SUMMARY
+    - name: Upload results
+      uses: actions/upload-artifact@v2
+      with:
+        name: results-${{ matrix.distro }}-${{ matrix.rmw_impl }}
+        path: |
+          data.csv
+          *.png
