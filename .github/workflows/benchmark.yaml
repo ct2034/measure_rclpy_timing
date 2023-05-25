@@ -18,10 +18,10 @@ jobs:
           - rmw_cyclonedds_cpp
           - rmw_fastrtps_cpp
         include:
-          - distro: foxy
-            os: ubuntu-20.04
-          - distro: humble
-            os: ubuntu-22.04
+          # - distro: foxy
+          #   os: ubuntu-20.04
+          # - distro: humble
+          #   os: ubuntu-22.04
           # - distro: iron
           #   os: ubuntu-22.04
           - distro: rolling
@@ -38,10 +38,10 @@ jobs:
     - name: Install dependencies
       run: sudo apt-get install -y python3-pip
     - name: Install Cyclone DDS
-      run: sudo apt-get install -y ros-${{ matrix.distro }}-cyclonedds-cpp
+      run: sudo apt-get install -y ros-${{ matrix.distro }}-cyclonedds
       if: matrix.rmw_impl == 'rmw_cyclonedds_cpp'
     - name: Install Fast DDS
-      run: sudo apt-get install -y ros-${{ matrix.distro }}-fastrtps-cpp
+      run: sudo apt-get install -y ros-${{ matrix.distro }}-fastrtps
       if: matrix.rmw_impl == 'rmw_fastrtps_cpp'
     - name: Install pip dependencies
       run: pip3 install -r src/measure_rclpy_timing/requirements.txt
