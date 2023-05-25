@@ -38,10 +38,10 @@ jobs:
     - name: Install dependencies
       run: sudo apt-get install -y python3-pip
     - name: Install Cyclone DDS
-      run: sudo apt-get install -y ros-${{ matrix.distro }}-cyclonedds
+      run: sudo apt-get install -y ros-${{ matrix.distro }}-cyclonedds-cpp
       if: matrix.rmw_impl == 'rmw_cyclonedds_cpp'
     - name: Install Fast DDS
-      run: sudo apt-get install -y ros-${{ matrix.distro }}-fastrtps
+      run: sudo apt-get install -y ros-${{ matrix.distro }}-fastrtps-cpp
       if: matrix.rmw_impl == 'rmw_fastrtps_cpp'
     - name: Install pip dependencies
       run: pip3 install -r src/measure_rclpy_timing/requirements.txt
