@@ -10,8 +10,8 @@ jobs:
     strategy:
       matrix:
         distro:
-          - foxy
-          - humble
+          # - foxy
+          # - humble
           # - iron
           - rolling
         rmw_impl:
