@@ -1,4 +1,4 @@
-# Comparison between different executors 
+# Comparison between different executors
 
 ![pairplot_executor](pairplot_executor.png)
 

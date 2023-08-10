@@ -14,7 +14,7 @@ import rclpy
 
 from std_msgs.msg import String
 
-from custom_msgs.msg import NonStdString
+from custom_msgs.msg import NonStdString, ArrayOfNonStdString
 
 from rclpy_listeners.ex_multithreaded import MultiThreadedEx
 from rclpy_listeners.ex_rclpy_spin import RclpySpin
@@ -80,6 +80,17 @@ def make_measurement(duration_s, rate_hz, msg_size, Exec, MessageType, args=None
     return n_messages_received/n_msgs_expected, cpu_usage
 
 
+def get_content_str(msg_size, MessageType):
+    if MessageType in [String, NonStdString]:
+        data_content = 'x' * msg_size
+    elif MessageType == ArrayOfNonStdString:
+        data_content = '[' + ', '.join(["data: x"] * msg_size) + ']'
+    else:
+        raise NotImplementedError(f'{MessageType} not implemented')
+    data_str = f'data: {data_content}'
+    return '{' + data_str + '}'
+
+
 def make_publisher(PUBLISHER_RATIO, duration_s, rate_hz, msg_size, MessageType):
     n_msgs_expected = duration_s * rate_hz
     # PUBLISHER_RATIO x in case of loss
@@ -88,11 +99,11 @@ def make_publisher(PUBLISHER_RATIO, duration_s, rate_hz, msg_size, MessageType):
         msg_type = 'std_msgs/msg/String'
     elif MessageType == NonStdString:
         msg_type = 'custom_msgs/msg/NonStdString'
+    elif MessageType == ArrayOfNonStdString:
+        msg_type = 'custom_msgs/msg/ArrayOfNonStdString'
     else:
         raise NotImplementedError
-    data_content = 'x' * msg_size
-    data_str = f'data: {data_content}'
-    content_str = '{' + data_str + '}'
+    content_str = get_content_str(msg_size, MessageType)
     pub_command = (
         f'ros2 topic pub -t {n_msgs_send} -w 0 -r {rate_hz} -p 0 ' 
         f'/topic {msg_type} \'{content_str}\'')
@@ -120,9 +131,9 @@ def experiment(args=None):
     n_trials = 3
     # n_trials = 1
     msg_sizes = np.logspace(start=0, stop=4, num=3, dtype=int)
-    # msg_sizes = np.logspace(start=0, stop=4, num=2, dtype=int)
+    # msg_sizes = np.logspace(start=0, stop=2, num=2, dtype=int)
     executors = [RclpySpin, RclpySpinOnce, MultiThreadedEx]
-    message_types = [String, NonStdString]
+    message_types = [String, NonStdString, ArrayOfNonStdString]
 
     # experiment indexing
     experiments = dict(
